@@ -1,0 +1,4 @@
+[console_scripts]
+label-studio-converter=label_studio_sdk.converter.main:main
+label-studio-sdk=label_studio_sdk._extensions.cli.main:main
+

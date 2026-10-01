@@ -1,0 +1,52 @@
+# Files the installed application needs at runtime but that setuptools would not
+# package on its own. Upstream does not need most of this because it builds with
+# uv_build, which includes everything under the module root; this project builds
+# with setuptools, so the list has to be explicit.
+#
+# Kept in step with upstream's MANIFEST.in, minus the entries for paths this tree
+# does not have (static_build/, version_.py, pytest.ini, per-file web/dist rules).
+
+# Django templates
+recursive-include label_studio *.html
+
+# label-config templates shown in the project creation wizard
+recursive-include label_studio/annotation_templates *
+
+# static assets served by the app
+recursive-include label_studio/core/static *
+
+# label config schema and the precomputed route list
+recursive-include label_studio/core/utils/schema *.json
+include label_studio/core/all_urls.json
+
+# version.py is read by core.utils.common.collect_versions()
+include label_studio/core/version.py
+
+# storage form layouts
+recursive-include label_studio/io_storages *.yml
+
+# feature flags are always on in the community build, but the file is still loaded
+include label_studio/feature_flags.json
+
+# server configuration: this replaced the command line options, so it has to ship
+# or an installed copy has no way to configure host/port.
+include label_studio/LabelStudio.conf
+
+# vendored SDK: object_tags.py reads data_examples.json at runtime, and
+# _extensions/interface/cli.py copies the validator assets next to node.
+recursive-include label_studio_sdk *.json *.md *.mjs py.typed
+
+# built frontend. Required: settings derive EDITOR_ROOT / DM_ROOT /
+# REACT_APP_ROOT from the repo layout, so these must keep the web/dist/... paths.
+recursive-include web/dist *
+
+# documentation sources. Only the markdown/image sources ship; the site theme and
+# build scaffolding are pruned below.
+recursive-include docs/source *
+include docs/README.md
+include docs/CONTRIBUTING.md
+
+# never package build inputs
+prune web/node_modules
+prune docs/themes
+global-exclude __pycache__ *.py[cod]

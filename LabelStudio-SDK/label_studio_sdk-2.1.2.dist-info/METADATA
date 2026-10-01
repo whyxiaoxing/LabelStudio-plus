@@ -1,0 +1,277 @@
+Metadata-Version: 2.3
+Name: label-studio-sdk
+Version: 2.1.2
+Summary: 
+Requires-Python: >=3.10,<4
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Provides-Extra: aiohttp
+Requires-Dist: Pillow (>=12.3.0)
+Requires-Dist: aiohttp (>=3.14.1,<4) ; (python_version >= "3.10") and (extra == "aiohttp")
+Requires-Dist: appdirs (>=1.4.3)
+Requires-Dist: datamodel-code-generator (>=0.70.0)
+Requires-Dist: doclang (>=0.7.1)
+Requires-Dist: httpx (>=0.21.2)
+Requires-Dist: httpx-aiohttp (>=0.1.8,<0.2.0) ; (python_version >= "3.10") and (extra == "aiohttp")
+Requires-Dist: ijson (>=3.2.3)
+Requires-Dist: jsf (>=0.11.2,<0.12.0)
+Requires-Dist: jsonschema (>=4.23.0)
+Requires-Dist: lxml (>=6.1.0)
+Requires-Dist: nltk (>=3.10.0,<=3.11.0)
+Requires-Dist: numpy (>=2.2,<3.0.0)
+Requires-Dist: opencv-python-headless (>=4.12.0,<4.13.0)
+Requires-Dist: pandas (>=0.24.0)
+Requires-Dist: pydantic (>=1.9.2)
+Requires-Dist: pydantic-core (>=2.18.2,<3.0.0)
+Requires-Dist: pyjwt (>=2.13.0,<2.14.0)
+Requires-Dist: requests (>=2.33.0)
+Requires-Dist: requests-mock (==1.12.1)
+Requires-Dist: typer (>=0.12.3)
+Requires-Dist: typing_extensions (>=4.0.0)
+Requires-Dist: ujson (>=5.8.0)
+Requires-Dist: urllib3 (>=2.5.0)
+Requires-Dist: watchfiles (>=0.21.0)
+Requires-Dist: xmljson (==0.2.1)
+Project-URL: Repository, https://github.com/HumanSignal/label-studio-sdk
+Description-Content-Type: text/markdown
+
+# Label Studio Python Library
+
+[![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-SDK%20generated%20by%20Fern-brightgreen)](https://github.com/fern-api/fern)
+[![pypi](https://img.shields.io/pypi/v/label-studio-sdk.svg)](https://pypi.python.org/pypi/label-studio-sdk)
+
+The Label Studio Python Library provides convenient access to the Label Studio API from applications written in Python.
+<!-- End Title  -->
+
+<!-- Outline -->
+
+
+# Documentation
+Explore the Label Studio API documentation [here](https://api.labelstud.io/).
+
+
+# Installation
+
+```sh
+pip install --upgrade label-studio-sdk
+# or
+poetry add label-studio-sdk
+```
+
+# Usage
+
+```python
+from label_studio_sdk import LabelStudio
+
+client = LabelStudio(
+    base_url='YOUR_LABEL_STUDIO_URL',  
+    api_key="YOUR_API_KEY",
+)
+```
+
+## CLI
+
+The SDK also includes a CLI entrypoint that mirrors SDK resources and methods.
+
+On **leaf commands** (for example `projects create`), use **`-h`** for minimal help (one-line summary, SDK signature, and options) and **`--help`** for the full generated documentation (parameters, examples, return shape, and options). Top-level groups only register **`--help`**.
+
+Nested Fern client groups map to nested CLI subcommands: dots in the Python SDK path become spaces, and underscores become hyphens. For example, `client.projects.stats.label_distribution_counts(...)` is:
+
+```bash
+label-studio-sdk projects stats label-distribution-counts --param id=1 --dry-run
+```
+
+Other nested examples: `import-storage s3 list`, `organizations members list`, `analytics kpis ...`, `sso saml ...`.
+
+```bash
+export LABEL_STUDIO_API_KEY="YOUR_API_KEY"
+export LABEL_STUDIO_URL="YOUR_BASE_URL"
+
+# minimal help for one command
+label-studio-sdk projects create -h
+
+# full help (longer)
+label-studio-sdk projects create --help
+
+# nested group help
+label-studio-sdk projects stats --help
+
+# top-level
+label-studio-sdk --help
+
+# List projects
+label-studio-sdk projects list
+
+# Create a project (generic key=value params)
+label-studio-sdk projects create \
+  --param title="CLI Example" \
+  --param 'label_config=<View><Text name="text" value="$text"/></View>'
+```
+
+### Running the CLI with uv
+
+```bash
+# from PyPI
+uv run --with label_studio_sdk label-studio-sdk --help
+
+# from github
+uv run --with git+https://github.com/HumanSignal/label-studio-sdk.git label-studio-sdk --help
+
+# from local
+uv run --with-editable . label-studio-sdk --help
+```
+
+### Interface CLI
+
+Use `label-studio-sdk interface` to scaffold, validate, preview, sync, and start projects from local interface JSX files. See [the interface CLI guide](interface-cli.md).
+
+# Versions
+
+## SDK 2.0.0
+
+In August 2025, we released SDK version 2.0.0. 
+
+This version has a number of documentation and functional improvements over SDK 1. 
+
+### Enhancements 
+
+**Enterprise-only**
+
+- Added a new `projects.stats.iaa` endpoint to return stats from the inter-annotator agreement matrix. 
+- You can now update tasks that have comments.
+- Added support for `sync` to `S3s` (S3 with IAM role) exports.
+
+**Enterprise and open source**
+
+- Expanded support to include all project settings, many of which were missing in SDK 1. For example, in Enterprise environments you can now configure `assignment_settings`, `review_settings`, `annotator_evaluation`, and many more.
+- Fixed passing the `project` parameter in `actions.list()` (broken in SDK 1). 
+- Relaxed request/response validation reduces pydantic errors in SDK 2.
+
+### Breaking changes
+
+**Enterprise-only**
+
+- `comments.create` no longer accepts a `project` argument.
+- In `prompts.indicators`, the `pk` parameter is now `id`.
+- In `prompts.runs` and `prompts.versions`, the `id` parameter is now `prompt_id`.
+- `workspaces.members.list` responses are now objects instead of dictionaries.
+
+**Enterprise and open source**
+
+- In `projects.exports` calls, the project ID is now passed as `id`, while the export ID is passed as `export_pk`.
+- Predictions returned in task responses are now objects instead of dictionaries. 
+
+## SDK 1.0+
+
+SDK 1 was released in June 2024. 
+
+If you use the Label Studio SDK 1 package in any automated pipelines, we strongly recommend pinning your SDK version to `<2.0.0` until you can reconcile the breaking changes. 
+
+
+## SDK <1
+
+The version of `label-studio-sdk<1` is deprecated and no longer supported. We recommend updating to the latest version.
+
+<details>
+
+<summary> To use SDK <1 </summary>
+
+If you still want to use the deprecated version, you can install it with `pip install "label-studio-sdk<1"`. 
+
+OR You can find the branch with the old version by cloning the repository and checking out the branch as follows:
+
+```sh
+git clone https://github.com/HumanSignal/label-studio-sdk.git
+cd label-studio-sdk
+git fetch origin
+git checkout release/0.0.34
+```
+
+OR you can change your import statements as follows:
+```python
+from label_studio_sdk import Client
+from label_studio_sdk.data_manager import Filters, Column, Operator, Type
+from label_studio_sdk._legacy import Project
+```
+
+</details>
+
+# Example: Create a new project with tasks
+
+```python
+# Import the SDK and the client module
+from label_studio_sdk import LabelStudio
+
+client = LabelStudio(
+    base_url="http://localhost:8080",   # <-- put your LS URL here
+    api_key="YOUR_API_KEY",             # <-- put your API key here
+)
+
+label_config = """
+<View>
+  <Header value="Choose text sentiment:"/>
+  <Text name="text" value="$text"/>
+  <Choices name="sentiment" toName="text" choice="single">
+    <Choice value="Positive"/>
+    <Choice value="Negative"/>
+    <Choice value="Neutral"/>
+  </Choices>
+</View>
+"""
+
+# Create project
+project = client.projects.create(
+    title="Sentiment Classification",
+    label_config=label_config
+)
+
+# (Optional) validate the config to catch mistakes early
+client.projects.validate_label_config(id=project.id, label_config=label_config)
+
+# Create a single task
+task = client.tasks.create(
+    project=project.id,
+    data={"text": "Label Studio is the best!"}  # 'text' matches value="$text"
+)
+print(f"Created task id: {task.id}")
+
+# Or create multiple tasks at once
+client.projects.import_tasks(
+    id=project.id,
+    request=[
+        {"text": "I love Label Studio"},
+        {"text": "Label Studio helps me ship faster"},
+    ]
+)
+```
+
+For additional examples, see [our API reference](https://api.labelstud.io/). 
+
+<!-- Begin Contributing, generated by Fern  -->
+# Contributing
+
+Please follow [this guide to contribute to the SDK](https://github.com/HumanSignal/label-studio-client-generator?tab=readme-ov-file#how-to-contribute)
+
+While we value open-source contributions to this SDK, this library is generated programmatically. 
+Additions made directly to this library would have to be moved over to our generation code, 
+otherwise they would be overwritten upon the next generated release. Feel free to open a PR as
+ a proof of concept, but know that we will not be able to merge it as-is. We suggest opening 
+an issue first to discuss with us!
+
+On the other hand, contributions to the README are always very welcome!
+<!-- End Contributing  -->
+

@@ -1,0 +1,286 @@
+---
+title: Review annotations in Label Studio
+short: Review annotations
+tier: enterprise
+type: guide
+order: 0
+order_enterprise: 304
+meta_title: Review annotation quality in Label Studio
+meta_description: In data labeling projects, start evaluating annotator performance against ground truth annotations, predictions, and other annotator's annotations.
+section: "Review & Measure Quality"
+---
+
+After multiple labelers have annotated tasks, review their output to validate the quality of the results. You can also perform this task after a model has predicted labels for tasks in your dataset. To configure the settings for reviewing annotations, see [Set up review settings for your project](setup_project.html#Set-up-review-settings-for-your-project).
+
+The annotation review workflow is only available in Label Studio Enterprise Edition. If you're using Label Studio Community Edition, see <a href="https://labelstud.io/guide/label_studio_compare.html">Label Studio Features</a> to learn more.
+
+See the following video for an overview of reviewer workflows: 
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/dhBrphE7PHo?si=YMRI-omwxoQFuhma" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
+
+## Why review annotations?
+
+Data labeling is a crucial step for training many machine learning models, and it's essential to review annotations to make sure that only the highest quality data is used to train your machine learning model. If you don't review the quality of labeled data, weak annotations might be used when training your model and degrade overall model performance.
+
+## Review annotated tasks
+
+After you [assign reviewers to tasks](#Assign-reviewers-to-tasks), they can review annotated tasks. Administrators and project managers can review tasks at any time, without being added to a project.
+
+1. Reviewers can click **Review Annotations** for a specific project, then click **Review All Tasks** on the Data Manager to start reviewing tasks. Administrators and project managers can click tasks from the Data Manager or **Explore Review**.
+2. Review the first task and annotation. 
+
+    By default, you view the tasks in the order in which they were presented to the annotator. If you want to change the order that you review tasks, see [Choose what to review](#Choose-what-to-review). 
+    
+    - If the annotation is correct, click **Accept**. 
+    
+    - If the annotation is mostly correct, you can correct it by selecting a different option, changing the selected region, moving the bounding box, or whichever makes sense for the type of label you're reviewing. After correcting the annotation, click **Fix & Accept**. 
+    - If the annotation is completely incorrect, or you don't want to attempt to correct it at all, click **Reject** to reject the annotation. To place a rejected task back in the Label Stream for annotation, you must delete the annotation. Rejecting an annotation does not return it to annotators to re-label.
+
+3. Continue reviewing annotated tasks until you've reviewed all annotated tasks. Click **Data Manager** to return to the list of tasks for the project.
+
+!!! info Tip
+    If there are multiple annotations, you can select the tab of each annotation by annotator and result ID to view them separately. The [annotation result ID](labeling.html#How-Label-Studio-saves-results-in-annotations) is different from the task ID visible in the left menu. To see annotations side-by-side, you can click the task in the Data Manager and view a grid of annotations in the task preview mode.
+
+### Choose what to review
+
+You can review tasks in random order, or order tasks in the project data manager in different ways, depending on your use case:
+
+- Order tasks by annotator, to review annotations and assess individual annotator performance at the same time.
+- Order tasks by agreement, to review annotations with more uncertainty among annotators first.
+- Order tasks by model confidence score, to review the annotations that a machine learning model was less certain about first.
+
+#### Task ordering and limiting (Enterprise)
+
+For Label Studio Enterprise projects, you can configure the review stream ordering and limit the review slice:
+
+- Task Ordering: Choose between By Task ID (sequential) and Random. Random preserves the order of annotations within each task but randomizes task order.
+- Task Limit (%): When Random is selected, optionally limit the percentage of project tasks available for review. The limit is applied after any filters such as “Show only finished tasks.” When reviewers start a review session from a Data Manager selection (selected items), the limit is bypassed for that session.
+
+See **Settings > Review > Task Ordering** and **Task Limit** for configuration details.
+
+### Navigate between tasks or annotations
+
+You can now navigate back through the review stream in the same path as moving forward when `Task is reviewed after all annotations are reviewed` option is set. The go back (`<`)functionality takes you back through the same set of annotations as it had moving forward.
+
+1. As an **ADMINISTRATOR**, log in to the [Label Studio app](https://app.heartex.com/projects/?page=1).
+
+2. Navigate to **All Projects** page, if needed.
+
+3. Open any project.
+
+4. Observe that you are taken to **Data Manager**.
+
+5. Navigate to **Settings** >> **Review**.
+
+6. Select `Task is reviewed after all annotations are reviewed` option.
+
+7. Click **SAVE** button.
+
+8. Navigate back to Data Manager.
+
+9. Make sure to have several tasks set up with exactly two annotations each, but no reviews.
+
+10. Click **REVIEW ALL TASKS** button.
+
+11. Observe that you are taken to Review Stream.
+
+12. Note the task or annotation that you are on.
+
+13. Complete review for this annotation.
+
+14. Observe that you are taken to same task (second annotation).
+
+15. Repeat steps 12 to 14 for couple more times.
+
+16. Navigate back through the Review Stream using the go back (`<`) button.
+
+!!! note
+    Confirm that you are not taken through the same path that you have come through moving forward.
+
+<br>
+<div style="margin:auto; text-align:center;"><img src="/images/go-back-reviewstream.png" style="opacity: 0.8"/></div>
+<i>Figure 1: Go back to the previous task. </i>
+
+### Assign reviewers to tasks
+
+As an administrator or project manager, you can assign reviewers to tasks, or people with access can review tasks on an ad hoc basis. Anyone who is assigned to a task or who completes a review of a task appears in the **Reviewers** column on the Data Manager. You must first [add a reviewer to the project](setup_project.html#Add-members-to-a-project) or [add members to the project workspace](manage_users.html#Add-or-remove-members-to-a-workspace) before you can assign them as a reviewer.
+
+1. For a specific project, select tasks on the **Data Manager**.
+2. Select the tasks dropdown and select **Assign Reviewers**.
+3. Select names of reviewers and click the `>` arrow to assign them to the selected tasks.
+4. Click **Assign**.
+
+You can assign reviewers to multiple tasks at once, but you cannot remove reviewers from multiple tasks at once.
+
+## Review project quality dashboards
+
+Use project dashboards to review annotator activity, agreement, and label distribution. For a project, click **Dashboard** to view project-level dashboards.
+
+If you don't see an annotator's activity reflected on a dashboard, make sure they have been added as a member to the project.
+
+### Review label distribution
+
+Use the [Label Distribution dashboard](dashboard_distribution) to see how labels and dimension values are distributed across annotations and predictions. Use this dashboard to identify possible problems with your dataset distribution, such as labels that are overrepresented in annotated data.
+
+For example, if you're developing a dataset of OCR images, and 90% of your tasks have **Text** labels and 10% have **Handwriting** labels, you might want to increase the number of images of handwriting in your dataset, to improve the eventual accuracy of a machine learning model trained on this dataset.
+
+## Pause an annotator
+
+For organizations with a large number of annotators, it might prove useful to pause an annotator's progress. This might be helpful for annotators that are performing poorly or exhibiting behavior that might indicate they have automated their work (bot behavior). 
+
+### Full and flexible pauses
+
+How much access a paused user keeps depends on why they were paused: 
+
+| Pause type          | Description    |
+| ------------- | ------------ |
+| **Full pause** | Applies when a user is [paused manually](#Manually-pause-an-annotator) or by a [behavior-based trigger](#Behavior-based-triggers). <br><br />The user loses access to the project entirely. They cannot annotate, review, comment, or make changes to their own existing annotations. |
+| **Flexible pause** | Applies when a user is paused by the [Tasks Per Annotator Limit](project_settings_lse#annotation-limit) or by [Annotator Evaluation](project_settings_lse#annotator-eval). <br><br />The user keeps access to the project so that they can work through the rejected annotations that are returned to them. They cannot begin any new annotation work. For more information, see [Recover from a flexible pause](#Recover-from-a-flexible-pause). |
+
+A pause only restricts the type of work that triggered it. Annotation limits and annotator evaluation both measure annotation work, so a flexible pause stops new annotation work only. If a paused user is also a reviewer, they can continue reviewing. Only a full pause stops a user from reviewing. 
+
+!!! note
+    A flexible pause acts as a full pause when the project's [**Reject Options**](project_settings_lse#reject-options) are set to **Remove rejected annotations from labeling queue**. In this case, rejected annotations are never returned to the annotator, so there is nothing for them to recover. 
+
+### Manually pause an annotator
+
+You can manually pause annotators from the Members dashboard in a project. This action is only available next to users in the Annotator and Reviewer roles:
+
+![Screenshot of pause](/images/review/pause.png)
+
+Manually pausing a user is always a full pause. When a user is paused, the following occurs:
+
+* They immediately see a message informing them that they have been paused. 
+
+    ![Screenshot of message](/images/review/paused-message.png)
+* Their progress within their current task is saved as a draft, but they cannot make any further changes.   
+* When they click **Go Back**, they are returned to the Projects page. If they attempt to re-enter the project, they are shown the error message above. 
+
+!!! info Tip
+
+    If you hover over the **Paused** indicator, you can see the message that was shown to the user when they were paused. If a user was manually paused, it also shows who initiated the action.  
+
+    ![Screenshot of hover](/images/review/paused-tooltip.png)
+
+### Automatically pause annotators 
+
+#### Annotation Limit settings
+
+You can use **Settings > Quality > Annotation Limit** to set limits on how many tasks an annotator is able to complete before they are paused. For more information, see [Annotation Limit](project_settings_lse#annotation-limit). 
+
+#### Annotator Evaluation settings
+
+You can use **Settings > Quality > Annotator Evaluation** to automatically pause annotators who do not meet a ground truth agreement or acceptance score threshold. For more information, see [Annotator Evaluation](project_settings_lse#annotator-eval).
+
+#### Behavior-based triggers
+
+If you have [plugins](plugins) enabled, you can automatically pause an annotator based on certain behaviors and then customize the message that appears on their screen. 
+
+For more information, see [Plugins - Spam and Bot Detection](/plugins/pause_annotator).
+
+### Recover from a flexible pause
+
+When a user is under a flexible pause, they keep access to the project so that they can correct the annotations that reviewers have rejected. Getting those annotations accepted is how they work their way out of the pause. 
+
+Users under a flexible pause can do the following:
+
+* Re-enter the project. If the project has **Show Data Manager to annotators** enabled, they can use the Data Manager. Otherwise, they can only use the labeling stream. For more information, see [Annotation Options](project_settings_lse#annotating-options).
+* Update their own rejected annotations. In the labeling stream, they are only served their rejected annotations, and they cannot skip them. 
+* Add comments, so that they can respond to reviewer feedback. 
+
+They cannot begin any new annotation work, and they cannot update annotations that have not been rejected. 
+
+Once they have updated all of their rejected annotations, they see a message telling them that no further tasks are available until more of their work has been reviewed. 
+
+!!! note
+    Updating a rejected annotation does not lift the pause by itself. The pause remains in place until the user meets the project requirements again. For how each pause is lifted, see [Tasks Per Annotator Limit](project_settings_lse#annotation-limit) and [Annotator Evaluation](project_settings_lse#annotator-eval).
+
+
+## Verify model and annotator performance
+
+To verify the performance of specific annotators, review the [Members dashboard](dashboard_members) for a specific project. If you don't see an annotator's activity reflected, make sure they have been added as a member to the project.
+
+### Review annotator performance
+
+For each project, use the [Members dashboard](dashboard_members) to learn more about annotators, reviewers, models, review outcomes, and overall agreement.
+
+Discover who has worked on the project, how many annotations and reviews they have completed, how much time they spent, and how their work compares against other annotators, ground truth annotations, or model predictions.
+
+Review a table to see the following for each annotator:
+
+- The total agreement for one annotator with other annotators. See more about [how annotator agreement is calculated](stats.html).
+- The number of tasks assigned, pending, submitted, or skipped.
+- The number of tasks that they skipped.
+- The outcome of reviews for the annotations they performed.
+- Their performance score and acceptance score.
+- Their annotator evaluation status, if [Annotator Evaluation](project_settings_lse#annotator-eval) is enabled.
+- Their average, median, and total time spent.
+- The agreement of their annotations with the ground truth annotations, if there are any.
+- The agreement of their annotations with predicted annotations, if there are any.
+
+### Review annotator agreement matrix
+
+You can also review overall annotator agreement on a more individual basis with the [Members dashboard](dashboard_members) agreement matrix.
+
+Review the agreement matrix to understand which annotator's annotations consistently agree with or don't agree with other annotator's annotations. You can filter the matrix by dimension and label, or include model versions when predictions are available. See more about [how annotator agreement is calculated](stats).
+
+To see the specific annotations contributing to the agreement, do the following:
+
+1. Open the **Data Manager** for the project.
+2. Locate a task annotated by the different annotators that you want to compare.
+3. Click the task to open the task preview.
+4. Click each annotation tab to compare how the different annotations differ. The initials of each annotator appears in the tab header with the annotation ID.
+
+### Review agreement distribution across tasks
+
+Use the [Data quality dashboard](dashboard_data_quality) to review the distribution of agreement percentages across project tasks. The more tasks with higher agreement, the higher quality your dataset is likely to be. Clusters of lower agreement scores might mean that some tasks are confusing, difficult to label consistently, or need clearer instructions.
+
+## Review annotations against ground truth annotations
+
+Define ground truth annotations in a Label Studio project. Use ground truth annotations to assess the quality of your annotated dataset. Review ground truths to make sure that annotators are accurately labeling data at the start of the project, and continually throughout the lifecycle of the training dataset creation.
+
+Label Studio Enterprise compares annotations from annotators and model predictions against the ground truth annotations for a task to calculate an accuracy score between 0 and 1.
+
+!!! note
+    Ground truth annotations are only available in Label Studio Enterprise Edition. If you're using Label Studio Community Edition, see [Label Studio Features](https://labelstud.io/guide/label_studio_compare.html) to learn more.
+
+## Define ground truth annotations for a project
+
+Set specific task annotations as ground truth annotations from the **Data Manager** page for a project.
+
+1. Locate the task that you want to set a ground truth annotation for.
+2. Click the task to preview all annotations for the task as tabs. If an annotation is already set as a ground truth, the annotation ID in the tab has a yellow star next to it.
+3. In the annotation sidebar for the task, click the star icon next to the annotation ID to set the annotation result as a ground truth.
+
+A task can only have one annotation set as the ground truth annotation for the task. If you set a new annotation for a task as a ground truth, the previous annotation for that task set as a ground truth is updated to no longer be a ground truth annotation.
+
+## Manage ground truth annotations for a project
+
+Review and modify the ground truth annotations for a project.
+
+### Review existing ground truth annotations
+
+You can adjust the Data Manager columns to show whether a task has any annotations set as ground truth annotations.
+
+1. On the **Data Manager**, select the **Columns** drop-down menu.
+2. Select the checkbox for **Ground Truth**. A column appears with a star icon and true or false values listed for tasks, indicating whether a ground truth annotation has been set for a task.
+3. Click **Columns** again to close the menu.
+
+You can also filter the Data Manager to show only tasks with ground truth annotations so that you can review them.
+
+1. On the **Data Manager**, select the **Filters** drop-down menu.
+2. Click **+ Add Filter** and select where **Ground Truth** is **yes**. The Data Manager updates to show only tasks with ground truth annotations set.
+3. Click **Filters** again to close the menu.
+
+### Remove ground truth annotations
+
+To remove ground truth annotations,
+
+1. When viewing the data manager for a project, select the checkboxes next to annotated tasks.
+2. In the selected tasks dropdown menu, select **Delete ground truths**. This does not delete the annotation, but changes the status of the ground truth setting for the annotation to false.
+
+You can also remove ground truths when you annotate a task.
+
+1. When labeling a task, create an annotation or select an existing one.
+2. Click the star icon to unset the annotation result as a ground truth.

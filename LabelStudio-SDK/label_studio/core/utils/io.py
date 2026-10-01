@@ -1,0 +1,396 @@
+"""This file and its contents are licensed under the Apache License 2.0. Please see the included NOTICE for copyright information and LICENSE for a copy of the license."""
+
+import glob
+import importlib
+import io
+import ipaddress
+import itertools
+import os
+import shutil
+import socket
+import sys
+from contextlib import contextmanager
+from tempfile import mkdtemp, mkstemp
+from urllib.parse import urlparse
+
+import requests
+import ujson as json
+import yaml
+from appdirs import user_cache_dir, user_config_dir, user_data_dir
+from django.conf import settings
+from django.core.files.temp import NamedTemporaryFile
+from requests.adapters import HTTPAdapter
+from urllib3.connection import HTTPConnection, HTTPSConnection
+from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
+from urllib3.exceptions import ConnectTimeoutError, NameResolutionError, NewConnectionError
+from urllib3.util import connection as urllib3_connection
+from urllib3.util import parse_url
+
+# full path import results in unit test failures
+from .exceptions import SsrfBlockedUrlError
+
+_DIR_APP_NAME = 'label-studio'
+
+
+def good_path(path):
+    return os.path.abspath(os.path.expanduser(path))
+
+
+def find_node(package_name, node_path, node_type):
+    assert node_type in ('dir', 'file', 'any')
+    basedir = importlib.resources.files(package_name).joinpath('')
+    node_path = os.path.join(*node_path.split('/'))  # linux to windows compatibility
+    search_by_path = '/' in node_path or '\\' in node_path
+
+    for path, dirs, filenames in os.walk(basedir):
+        if node_type == 'file':
+            nodes = filenames
+        elif node_type == 'dir':
+            nodes = dirs
+        else:
+            nodes = filenames + dirs
+        if search_by_path:
+            for found_node in nodes:
+                found_node = os.path.join(path, found_node)
+                if found_node.endswith(node_path):
+                    return found_node
+        elif node_path in nodes:
+            return os.path.join(path, node_path)
+    else:
+        raise IOError('Could not find "%s" at package "%s"' % (node_path, basedir))
+
+
+def find_file(file):
+    return find_node('label_studio', file, 'file')
+
+
+def find_dir(directory):
+    return find_node('label_studio', directory, 'dir')
+
+
+@contextmanager
+def get_temp_file():
+    fd, path = mkstemp()
+    yield path
+    os.close(fd)
+
+
+@contextmanager
+def get_temp_dir():
+    dirpath = mkdtemp()
+    yield dirpath
+    shutil.rmtree(dirpath)
+
+
+def get_config_dir():
+    config_dir = user_config_dir(appname=_DIR_APP_NAME)
+    try:
+        os.makedirs(config_dir, exist_ok=True)
+    except OSError:
+        pass
+    return config_dir
+
+
+def get_data_dir():
+    data_dir = user_data_dir(appname=_DIR_APP_NAME)
+    os.makedirs(data_dir, mode=0o700, exist_ok=True)
+    return data_dir
+
+
+def get_cache_dir():
+    cache_dir = user_cache_dir(appname=_DIR_APP_NAME)
+    os.makedirs(cache_dir, exist_ok=True)
+    return cache_dir
+
+
+def delete_dir_content(dirpath):
+    for f in glob.glob(dirpath + '/*'):
+        remove_file_or_dir(f)
+
+
+def remove_file_or_dir(path):
+    if os.path.isfile(path):
+        os.remove(path)
+    elif os.path.isdir(path):
+        shutil.rmtree(path)
+
+
+def get_all_files_from_dir(d):
+    out = []
+    for name in os.listdir(d):
+        filepath = os.path.join(d, name)
+        if os.path.isfile(filepath):
+            out.append(filepath)
+    return out
+
+
+def iter_files(root_dir, ext):
+    for root, _, files in os.walk(root_dir):
+        for f in files:
+            if f.lower().endswith(ext):
+                yield os.path.join(root, f)
+
+
+def json_load(file, int_keys=False):
+    with io.open(file, encoding='utf8') as f:
+        data = json.load(f)
+        if int_keys:
+            return {int(k): v for k, v in data.items()}
+        else:
+            return data
+
+
+def read_yaml(filepath):
+    if not os.path.exists(filepath):
+        filepath = find_file(filepath)
+    with io.open(filepath, encoding='utf-8') as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)  # nosec
+    return data
+
+
+def path_to_open_binary_file(filepath) -> io.BufferedReader:
+    """
+    Copy the file at filepath to a named temporary file and return that file object.
+    Unusually, this function deliberately doesn't close the file; the caller is responsible for this.
+    """
+    tmp = NamedTemporaryFile()
+    shutil.copy2(filepath, tmp.name)
+    return tmp
+
+
+def get_all_dirs_from_dir(d):
+    out = []
+    for name in os.listdir(d):
+        filepath = os.path.join(d, name)
+        if os.path.isdir(filepath):
+            out.append(filepath)
+    return out
+
+
+class SerializableGenerator(list):
+    """Generator that is serializable by JSON"""
+
+    def __init__(self, iterable):
+        tmp_body = iter(iterable)
+        try:
+            self._head = iter([next(tmp_body)])
+            self.append(tmp_body)
+        except StopIteration:
+            self._head = []
+
+    def __iter__(self):
+        return itertools.chain(self._head, *self[:1])
+
+
+def validate_url_for_ssrf(url, block_local_urls=True):
+    """Utility function for defending against SSRF attacks. Raises
+        - SsrfBlockedUrlError if the url is not HTTP[S], or if block_local_urls is enabled
+          and the URL resolves to a local address.
+        - LabelStudioApiException if the hostname cannot be resolved
+
+    :param url: Url to be checked for validity/safety,
+    :param block_local_urls: Whether urls that resolve to local/private networks should be allowed.
+    """
+
+    parsed_url = parse_url(url)
+
+    if parsed_url.scheme not in ('http', 'https'):
+        raise SsrfBlockedUrlError
+
+    domain = parsed_url.host
+    try:
+        ip = socket.gethostbyname(domain)
+    except socket.error:
+        from core.utils.exceptions import LabelStudioAPIException
+
+        raise LabelStudioAPIException(f"Can't resolve hostname {domain}")
+
+    if block_local_urls:
+        validate_ip(ip)
+
+
+def validate_upload_url(url, block_local_urls=True):
+    """Backward-compatible wrapper around validate_url_for_ssrf."""
+    return validate_url_for_ssrf(url, block_local_urls=block_local_urls)
+
+
+def resolve_host_for_ssrf(host: str, port=None) -> str:
+    """Resolve a host once for non-HTTP clients and return an address that passed validate_ip().
+
+    The caller must connect to the returned address, not to the hostname, so no second
+    DNS lookup can redirect the connection to a banned network.
+    """
+    try:
+        addr_infos = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
+    except socket.gaierror:
+        from core.utils.exceptions import LabelStudioAPIException
+
+        raise LabelStudioAPIException(f"Can't resolve hostname {host}")
+
+    # A rebinding host can return several records; reject if any is banned.
+    for addr_info in addr_infos:
+        validate_ip(addr_info[4][0])
+
+    return addr_infos[0][4][0]
+
+
+def validate_ip(ip: str) -> None:
+    """If settings.USE_DEFAULT_BANNED_SUBNETS is True, this function checks
+    if an IP is reserved for any of the reasons in
+    https://en.wikipedia.org/wiki/Reserved_IP_addresses
+    and raises an exception if so. Additionally, if settings.USER_ADDITIONAL_BANNED_SUBNETS
+    is set, it will also check against those subnets.
+
+    If settings.USE_DEFAULT_BANNED_SUBNETS is False, this function will only check
+    the IP against settings.USER_ADDITIONAL_BANNED_SUBNETS. Turning off the default
+    subnets is **risky** and should only be done if you know what you're doing.
+
+    :param ip: IP address to be checked.
+    """
+
+    default_banned_subnets = [
+        '0.0.0.0/8',  # current network
+        '10.0.0.0/8',  # private network
+        '100.64.0.0/10',  # shared address space
+        '127.0.0.0/8',  # loopback
+        '169.254.0.0/16',  # link-local
+        '172.16.0.0/12',  # private network
+        '192.0.0.0/24',  # IETF protocol assignments
+        '192.0.2.0/24',  # TEST-NET-1
+        '192.88.99.0/24',  # Reserved, formerly ipv6 to ipv4 relay
+        '192.168.0.0/16',  # private network
+        '198.18.0.0/15',  # network interconnect device benchmark testing
+        '198.51.100.0/24',  # TEST-NET-2
+        '203.0.113.0/24',  # TEST-NET-3
+        '224.0.0.0/4',  # multicast
+        '233.252.0.0/24',  # MCAST-TEST-NET
+        '240.0.0.0/4',  # reserved for future use
+        '255.255.255.255/32',  # limited broadcast
+        '::/128',  # unspecified address
+        '::1/128',  # loopback
+        '::ffff:0:0/96',  # IPv4-mapped address
+        '::ffff:0:0:0/96',  # IPv4-translated address
+        '64:ff9b::/96',  # IPv4/IPv6 translation
+        '64:ff9b:1::/48',  # IPv4/IPv6 translation
+        '100::/64',  # discard prefix
+        '2001:0000::/32',  # Teredo tunneling
+        '2001:20::/28',  # ORCHIDv2
+        '2001:db8::/32',  # documentation
+        '2002::/16',  # 6to4
+        'fc00::/7',  # unique local
+        'fe80::/10',  # link-local
+        'ff00::/8',  # multicast
+    ]
+
+    banned_subnets = [
+        *(default_banned_subnets if settings.USE_DEFAULT_BANNED_SUBNETS else []),
+        *(settings.USER_ADDITIONAL_BANNED_SUBNETS or []),
+    ]
+
+    for subnet in banned_subnets:
+        if ipaddress.ip_address(ip) in ipaddress.ip_network(subnet):
+            raise SsrfBlockedUrlError(f'URL resolves to a reserved network address (block: {subnet})')
+
+
+class _SsrfGuardedConnectionMixin:
+    """Resolve the host once and connect only to an address that passed validate_ip()."""
+
+    def _new_conn(self) -> socket.socket:
+        # Proxied connections are resolved by the proxy.
+        if getattr(self, 'proxy', None) is not None:
+            return super()._new_conn()
+
+        try:
+            addr_infos = socket.getaddrinfo(self._dns_host, self.port, 0, socket.SOCK_STREAM)
+        except socket.gaierror as e:
+            raise NameResolutionError(self.host, self, e) from e
+
+        # A rebinding host can return several records; reject if any is banned.
+        for addr_info in addr_infos:
+            validate_ip(addr_info[4][0])
+
+        last_error = None
+        for addr_info in addr_infos:
+            try:
+                sock = urllib3_connection.create_connection(
+                    (addr_info[4][0], self.port),
+                    self.timeout,
+                    source_address=self.source_address,
+                    socket_options=self.socket_options,
+                )
+            except socket.timeout as e:
+                raise ConnectTimeoutError(
+                    self, f'Connection to {self.host} timed out. (connect timeout={self.timeout})'
+                ) from e
+            except OSError as e:
+                last_error = e
+                continue
+
+            sys.audit('http.client.connect', self, self.host, self.port)
+            return sock
+
+        raise NewConnectionError(self, f'Failed to establish a new connection: {last_error}')
+
+
+class _SsrfGuardedHTTPConnection(_SsrfGuardedConnectionMixin, HTTPConnection):
+    pass
+
+
+class _SsrfGuardedHTTPSConnection(_SsrfGuardedConnectionMixin, HTTPSConnection):
+    pass
+
+
+class _SsrfGuardedHTTPConnectionPool(HTTPConnectionPool):
+    ConnectionCls = _SsrfGuardedHTTPConnection
+
+
+class _SsrfGuardedHTTPSConnectionPool(HTTPSConnectionPool):
+    ConnectionCls = _SsrfGuardedHTTPSConnection
+
+
+_SSRF_GUARDED_POOL_CLASSES = {
+    'http': _SsrfGuardedHTTPConnectionPool,
+    'https': _SsrfGuardedHTTPSConnectionPool,
+}
+
+
+class SsrfSafeHTTPAdapter(HTTPAdapter):
+    """requests adapter that blocks banned addresses before any bytes are sent."""
+
+    def init_poolmanager(self, *args, **kwargs):
+        super().init_poolmanager(*args, **kwargs)
+        self.poolmanager.pool_classes_by_scheme = _SSRF_GUARDED_POOL_CLASSES
+
+
+def ssrf_safe_session(max_retries=0, trusted_origin=None) -> requests.Session:
+    """Session whose connections refuse banned addresses, except to ``trusted_origin`` (scheme://host[:port])."""
+    session = requests.Session()
+    adapter = SsrfSafeHTTPAdapter(max_retries=max_retries)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    if trusted_origin:
+        parsed = urlparse(trusted_origin)
+        # Label Studio's own host may resolve to a private address on self-hosted installs;
+        # the trailing slash keeps app.example.com.evil.com from matching the prefix
+        session.mount(f'{parsed.scheme}://{parsed.netloc}/', HTTPAdapter(max_retries=max_retries))
+    return session
+
+
+def ssrf_safe_request(method, url, *args, **kwargs):
+    block_local_urls = kwargs.pop('block_local_urls', settings.SSRF_PROTECTION_ENABLED)
+    validate_url_for_ssrf(url, block_local_urls=block_local_urls)
+
+    if not block_local_urls:
+        # Reason for #nosec: caller opted out of address checks.
+        return requests.request(method, url, *args, **kwargs)  # nosec
+
+    with ssrf_safe_session() as session:
+        return session.request(method, url, *args, **kwargs)
+
+
+def ssrf_safe_get(url, *args, **kwargs):
+    return ssrf_safe_request('GET', url, *args, **kwargs)
+
+
+def ssrf_safe_post(url, *args, **kwargs):
+    return ssrf_safe_request('POST', url, *args, **kwargs)
